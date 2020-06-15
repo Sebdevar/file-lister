@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -20,6 +19,9 @@ func setDisplayLengths(fileSet []os.FileInfo) {
 	var largestFileSize int
 	for _, file := range fileSet {
 		fileNameLength := len(file.Name())
+		if file.IsDir() {
+			fileNameLength++
+		}
 		fileSize := int(file.Size())
 		fileModTimeLength := len(file.ModTime().String())
 
@@ -39,45 +41,30 @@ func setDisplayLengths(fileSet []os.FileInfo) {
 	}
 }
 
-func printTableLine(outputStream io.Writer, name, size, modTime string) (err error) {
+func addTableLine(name, size, modTime string) string {
 	nameEntry := name + strings.Repeat(" ", NameColumnLength-len(name))
 	sizeEntry := size + strings.Repeat(" ", SizeColumnLength-len(size))
 	modTimeEntry := modTime + strings.Repeat(" ", ModTimeColumnLength-len(modTime))
 
-	_, err = fmt.Fprintf(outputStream, "= %s | %s | %s =\n", nameEntry, sizeEntry, modTimeEntry)
+	return fmt.Sprintf("= %s | %s | %s =\n", nameEntry, sizeEntry, modTimeEntry)
+}
+
+func addTableDivision() string {
+	return fmt.Sprintln(strings.Repeat("=", NameColumnLength+SizeColumnLength+ModTimeColumnLength+10))
+}
+
+func addTotalStatistics(amountOfFiles, totalSizeInBytes int) (output string) {
+	output = fmt.Sprintln("Amount of files: ", amountOfFiles)
+	output += fmt.Sprintln("Total size (bytes): ", totalSizeInBytes)
 	return
 }
 
-func printTableDivision(outputStream io.Writer) (err error) {
-	_, err = fmt.Fprintln(outputStream, strings.Repeat("=", NameColumnLength+SizeColumnLength+ModTimeColumnLength+10))
-	return
-}
-
-func printTotalStatistics(outputStream io.Writer, amountOfFiles, totalSizeInBytes int) (err error) {
-	_, err = fmt.Fprintln(outputStream, "Amount of files: ", amountOfFiles)
-	if err != nil {
-		return
-	}
-
-	_, err = fmt.Fprintln(outputStream, "Total size (bytes): ", totalSizeInBytes)
-	return
-}
-
-func printTable(outputStream io.Writer, fileSet []os.FileInfo, addDirectorySizesToTotal bool) (err error) {
+func getTableDisplayAsString(fileSet []os.FileInfo, addDirectorySizesToTotal bool) (output string) {
 	setDisplayLengths(fileSet)
 
-	err = printTableDivision(outputStream)
-	if err != nil {
-		return
-	}
-	err = printTableLine(outputStream, NameHeader, SizeHeader, ModTimeHeader)
-	if err != nil {
-		return
-	}
-	err = printTableDivision(outputStream)
-	if err != nil {
-		return
-	}
+	output += addTableDivision()
+	output += addTableLine(NameHeader, SizeHeader, ModTimeHeader)
+	output += addTableDivision()
 
 	var totalSize int
 	for _, file := range fileSet {
@@ -94,16 +81,10 @@ func printTable(outputStream io.Writer, fileSet []os.FileInfo, addDirectorySizes
 			totalSize += int(file.Size())
 		}
 
-		err = printTableLine(outputStream, fileName, fileSize, fileModTime)
-		if err != nil {
-			return
-		}
+		output += addTableLine(fileName, fileSize, fileModTime)
 	}
 
-	err = printTableDivision(outputStream)
-	if err != nil {
-		return
-	}
-	err = printTotalStatistics(outputStream, len(fileSet), totalSize)
+	output += addTableDivision()
+	output += addTotalStatistics(len(fileSet), totalSize)
 	return
 }
